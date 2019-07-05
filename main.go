@@ -106,7 +106,7 @@ func resultProcessor() {
 				fmt.Printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%s%.3f ms |%s|%s\n", pr.Size, pr.Peer, pr.Sequence, pr.TTL, color, pr.Latency, strings.Repeat("-", barCount), CLR_W)
 
 			} else {
-				fmt.Printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms |%s|%s\n", pr.Size, pr.Peer, pr.Sequence, pr.TTL, pr.Latency, strings.Repeat("-", barCount))
+				fmt.Printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms |%s|\n", pr.Size, pr.Peer, pr.Sequence, pr.TTL, pr.Latency, strings.Repeat("-", barCount))
 			}
 
 			pingResults[pr.Target] = append(pingResults[pr.Target], pr)
