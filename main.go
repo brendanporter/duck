@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"runtime"
 
 	//"strconv"
 	"encoding/json"
@@ -101,7 +102,12 @@ func resultProcessor() {
 
 			barCount := int((pr.Latency / 2000) * 80)
 
-			fmt.Printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%s%.3f ms |%s|%s\n", pr.Size, pr.Peer, pr.Sequence, pr.TTL, color, pr.Latency, strings.Repeat("-", barCount), CLR_W)
+			if runtime.GOOS != "windows" {
+				fmt.Printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%s%.3f ms |%s|%s\n", pr.Size, pr.Peer, pr.Sequence, pr.TTL, color, pr.Latency, strings.Repeat("-", barCount), CLR_W)
+
+			} else {
+				fmt.Printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms |%s|%s\n", pr.Size, pr.Peer, pr.Sequence, pr.TTL, pr.Latency, strings.Repeat("-", barCount))
+			}
 
 			pingResults[pr.Target] = append(pingResults[pr.Target], pr)
 			jsonBytes, err := json.Marshal(pr)

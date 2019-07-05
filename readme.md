@@ -21,7 +21,7 @@ Screenshots
 Goals
 ---
 
-- In-place replacement for terminal `ping` command
+- Be a better, in-place replacement for terminal `ping` command
 - Capture high latency events in the background and make them clear on review
 
 
