@@ -15,7 +15,7 @@ How to use
 Screenshots
 ---
 
-![Image of Duck in Mac Terminal](https://brendanporter.github.io/duck-terminalui_v2.png)
+![Image of Duck in Mac Terminal](https://brendanporter.github.io/duck-terminalui_v3.png)
 ![image of Duck in Browser](https://brendanporter.github.io/duck-webui.png)
 
 Goals
@@ -27,7 +27,8 @@ Goals
 
 Features
 ---
-- In-terminal colored ASCII latency charting
+- In-terminal ASCII latency charting
+- Colorization of latency in terminal (Mac and Linux only)
 - Statistics printed every 30 seconds
 - Live web dashboard for visualizing latency over extended tests
   - Long-term chart with 30-second averaged samples
