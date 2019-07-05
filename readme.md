@@ -15,7 +15,7 @@ How to use
 Screenshots
 ---
 
-![Image of Duck in Mac Terminal](https://brendanporter.github.io/duck-terminalui.png)
+![Image of Duck in Mac Terminal](https://brendanporter.github.io/duck-terminalui_v2.png)
 ![image of Duck in Browser](https://brendanporter.github.io/duck-webui.png)
 
 Goals
