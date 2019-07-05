@@ -1,5 +1,23 @@
 # Duck long-term network latency tester
 
+How to use
+--- 
+
+- Find your binary and run from the command line as administrator/root (for ICMP listener)
+  - Watch the pings roll in
+  - Browse to http://localhost:14445 and watch the results
+- Build from source with `go build`
+  - Mac/Linux
+    - Run duck with `sudo ./duck <target>`
+  - Windows
+    - Run duck from administrator command prompt with `duck.exe <target>`
+
+Screenshots
+---
+
+![Image of Duck in Mac Terminal](https://brendanporter.github.io/duck-terminalui.png)
+![image of Duck in Browser](https://brendanporter.github.io/duck-webui.png)
+
 Goals
 ---
 
@@ -10,6 +28,7 @@ Goals
 Features
 ---
 - In-terminal colored ASCII latency charting
+- Statistics printed every 30 seconds
 - Live web dashboard for visualizing latency over extended tests
   - Long-term chart with 30-second averaged samples
   - Short-term chart (last 10 minutes) with live results

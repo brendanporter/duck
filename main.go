@@ -85,12 +85,9 @@ func resultProcessor() {
 		select {
 		case pr := <-pingResultChan:
 
-			switch pr.ICMPMessage.Type {
-			case ipv4.ICMPTypeEchoReply:
-
-			case ipv4.ICMPTypeDestinationUnreachable:
-				fmt.Printf("Destination network unreachable")
-			case ipv4.ICMPTypeTimeExceeded:
+			if pr.ICMPMessage.Type == ipv4.ICMPTypeDestinationUnreachable {
+				fmt.Printf("Destination network unreachable\n")
+				continue
 			}
 
 			var color string = CLR_W
@@ -266,7 +263,7 @@ func init() {
 func echoResults(target string, packetsTx, packetsRx int, minLatency, avgLatency, maxLatency, stdDevLatency float64) {
 
 	fmt.Print("\n")
-	log.Printf("--- %s ping statistics ---", target)
+	fmt.Printf("--- %s ping statistics ---\n", target)
 	fmt.Printf("%d packets transmitted, %d packets received, %.1f%% packet loss\n", packetsTx, packetsRx, (float64(packetsTx-packetsRx) / float64(packetsTx) * 100))
 	fmt.Printf("round-trip min/avg/max/stddev = %.3f/%.3f/%.3f/%.3f ms\n", minLatency, avgLatency, maxLatency, stdDevLatency)
 	fmt.Printf("View charted results at: http://localhost:14445\n\n")
@@ -309,7 +306,7 @@ func main() {
 		select {
 		case <-pingTicker.C:
 			packetsTx++
-			latency, err := quack.SendPing(target, packetsTx, 0, pingResultChan)
+			latency, err := quack.SendPing(target, 0, pingResultChan)
 			if err != nil {
 				log.Print(err)
 				fmt.Printf("Request timeout for icmp_seq %d\n", packetsTx)
@@ -353,6 +350,8 @@ func main() {
 					elog.Print(err)
 				}
 
+				digestTraceResults(traceResults)
+
 				ttlTraceResultChan <- traceResults
 
 				var lastLatency float64
@@ -361,7 +360,7 @@ func main() {
 
 				for i, traceResult := range traceResults {
 
-					log.Printf("TTL %d result: %#v", i+1, traceResult)
+					//log.Printf("TTL %d result: %#v", i+1, traceResult)
 
 					if lastLatency == 0 {
 						lastLatency = traceResult.Latency

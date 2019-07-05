@@ -18,6 +18,7 @@ var dashboard string = fmt.Sprintf(`<!doctype html>
 <style>%s</style>
 <script>%s</script>
 <script>%s</script>
+<script>%s</script>
 
 <title>Duck Latency Tester</title>
 <script>
@@ -49,7 +50,7 @@ function init(){
         text: 'Ping Latency Live'
     },
     subtitle: {
-        text: ''
+        text: '10-minute rolling window'
     },
     xAxis: {
         type: 'datetime'
@@ -61,19 +62,19 @@ function init(){
         plotBands: [
         	{
         		className: 'band-green',
-        		color: '#00FF00',
+        		color: '#114411',
         		from: 0,
         		to: 40
         	},
         	{
         		className: 'band-yellow',
-        		color: '#CA0065',
+        		color: '#A0792A',
         		from: 40,
         		to: 80,
         	},
         	{
         		className: 'band-red',
-        		color: '#FF0000',
+        		color: '#441111',
         		from: 80,
         		to: 999999,
         	},
@@ -97,7 +98,7 @@ function init(){
         }
     },
     series: [
-    	{name: 'Latency', type: 'line'},
+    	{name: 'Latency', type: 'line', lineWidth: 3},
     	{name: 'Alarming Latency', type: 'scatter', tooltip: {pointFormatter: function(i,e){
     		return  Highcharts.dateFormat('%%A, %%b %%e, %%H:%%M:%%S', new Date(this.x)) + '<br/><b>' + this.Target + ': ' + this.y + ' ms</b>';
     	}}}
@@ -128,19 +129,19 @@ pingHistoryChart = Highcharts.chart('pingHistoryChart', {
         plotBands: [
         	{
         		className: 'band-green',
-        		color: '#00FF00',
+        		color: '#114411',
         		from: 0,
         		to: 40
         	},
         	{
         		className: 'band-yellow',
-        		color: '#CA0065',
+        		color: '#A0792A',
         		from: 40,
         		to: 80,
         	},
         	{
         		className: 'band-red',
-        		color: '#FF0000',
+        		color: '#441111',
         		from: 80,
         		to: 999999,
         	},
@@ -165,7 +166,7 @@ pingHistoryChart = Highcharts.chart('pingHistoryChart', {
         }
     },
     series: [
-    	{name: 'Average', type: 'line', zIndex: 1},
+    	{name: 'Average', type: 'line', zIndex: 1, lineWidth: 3},
     	{name: 'Range', type: 'arearange', color: Highcharts.getOptions().colors[0], fillOpacity: 0.3, zIndex: 0, marker: {enabled: false}, lineWidth: 0, linkedTo: ':previous'},
     	{name: "Alarming Latency", type: 'scatter', tooltip: {pointFormatter: function(i,e){
     		return Highcharts.dateFormat('%%A, %%b %%e, %%H:%%M:%%S', new Date(this.x)) + '<b>' + this.Target + ': ' + this.y + ' ms</b>';
@@ -328,7 +329,7 @@ function handleWSMessage(event){
     			rows += "<tr><td>"+(i+1)+"</td><td>"+hop.Target+"</td><td>"+Math.round(hop.Latency)+"ms</td></tr>";
 			});
 
-    		$('#hopTable').html(rows);
+    		$('#hopTable tbody').html(rows);
     	}
 
     	if(jsonData.mt === "paths"){
@@ -337,7 +338,7 @@ function handleWSMessage(event){
     			rows += "<tr><td>"+path.PathName+"</td><td>"+path.TripCount+"</td><td>"+Math.round(path.AvgLatency)+"ms</td><td>"+Math.round(path.MaxLatencyAvg)+"ms</td></tr>";
 			});
 
-    		$('#pathsTable').html(rows);
+    		$('#pathsTable tbody').html(rows);
     	}
 
     	if(jsonData.mt === "hosts"){
@@ -346,7 +347,7 @@ function handleWSMessage(event){
     			rows += "<tr><td>"+host.HostName+"</td><td>"+host.HostDNSName+"</td><td>"+host.TripCount+"</td><td>"+Math.round(host.MinLatency)+"ms</td><td>"+Math.round(host.AvgLatency)+"ms</td><td>"+Math.round(host.MaxLatency)+"ms</td><td>"+host.HighLatency100+"</td><td>"+host.HighLatency400+"</td><td>"+host.HighLatency700+"</td></tr>";
 			});
 
-    		$('#hostsTable').html(rows);
+    		$('#hostsTable tbody').html(rows);
     	}
 
     	return
@@ -412,23 +413,20 @@ function handleWSMessage(event){
     webSocket.onclose = function(event){handleWSClose(event);}
   }
 </script>
-<style>
-.band-green {color: #00FF00;}
-.band-red {color: #FF0000}
-.band-yellow {color: #FFFF00}
-</style>
 </head>
-<body>
+<body style='background-color: #292923; color:white;'>
 <div id='pingHistoryChart'></div>
+<br/>
 <div id='pingChart'></div>
+<br/>
 <div class='container'>
-	<table class='table table-striped table-condensed table-bordered' id='hopTable'></table>
-	<table class='table table-striped table-condensed table-bordered' id='pathsTable'></table>
-	<table class='table table-striped table-condensed table-bordered' id='hostsTable'></table>
+	<table class='table table-striped table-condensed table-bordered' id='hopTable'><tbody></tbody></table>
+	<table class='table table-striped table-condensed table-bordered' id='pathsTable'><tbody></tbody></table>
+	<table class='table table-striped table-condensed table-bordered' id='hostsTable'><tbody></tbody></table>
 <div>
 </body>
 </html>
-`, jquery, boostrapCSS, bootstrapJS, highchartsCSS, highchartsJS, highchartsMoreJS)
+`, jquery, boostrapCSS, bootstrapJS, bootstrapSlateCSS, highchartsJS, highchartsMoreJS, highchartsDarkUnicaThemeJS)
 
 func wsHandler(w http.ResponseWriter, req *http.Request) {
 	ws, err := wsUpgrader.Upgrade(w, req, nil)
