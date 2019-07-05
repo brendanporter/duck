@@ -48,62 +48,6 @@ var hostResultsChan chan *quack.PingResult
 var hostResultsRequestChan chan int
 var hostResultsResponseChan chan map[string]*HostStats
 
-func saveProcessor() {
-
-	saveTicker := time.NewTicker(time.Minute)
-
-	for {
-		select {
-		case <-saveTicker.C:
-			err := saveDataToDisk("pings", pingResults)
-			if err != nil {
-				log.Print(err)
-			}
-
-			pathResultsRequestChan <- 1
-			prr := <-pathResultsResponseChan
-
-			err = saveDataToDisk("paths", prr)
-			if err != nil {
-				log.Print(err)
-			}
-
-			pathsResult := PathsResult{
-				Paths:       prr,
-				MessageType: "paths",
-			}
-
-			pathsJSON, err := json.Marshal(pathsResult)
-			if err != nil {
-				elog.Print(err)
-			}
-
-			wsHub.broadcast <- string(pathsJSON)
-
-			hostResultsRequestChan <- 1
-			hrr := <-hostResultsResponseChan
-
-			err = saveDataToDisk("hosts", hrr)
-			if err != nil {
-				log.Print(err)
-			}
-
-			hostsResult := HostsResult{
-				Hosts:       hrr,
-				MessageType: "hosts",
-			}
-
-			hostsJSON, err := json.Marshal(hostsResult)
-			if err != nil {
-				elog.Print(err)
-			}
-
-			wsHub.broadcast <- string(hostsJSON)
-
-		}
-	}
-}
-
 func resultProcessor() {
 
 	paths := make(map[string]*PathStats)
@@ -353,7 +297,7 @@ func main() {
 		target = os.Args[1]
 	}
 
-	flag.StringVar(&resultFileNameSuffix, "suffix", fmt.Sprintf("_%s_%s", target, time.Now().Format(time.RFC3339)), "filename suffix for storing result data (results[-<target>-<timestamp>].json)")
+	flag.StringVar(&resultFileNameSuffix, "suffix", fmt.Sprintf("_%s", target), "filename suffix for storing result data (results[-<target>-<timestamp>].json)")
 
 	flag.Parse()
 

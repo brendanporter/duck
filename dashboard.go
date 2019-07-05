@@ -19,7 +19,7 @@ var dashboard string = fmt.Sprintf(`<!doctype html>
 <script>%s</script>
 <script>%s</script>
 
-<title>Quack</title>
+<title>Duck Latency Tester</title>
 <script>
 $(document).ready(function(){
 	console.log("ready");
