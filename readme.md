@@ -8,9 +8,9 @@ How to use
   - Browse to http://localhost:14445 and watch the results
 - Build from source with `go build`
   - Mac/Linux
-    - Run duck with `sudo ./duck <target>`
+    - Run duck with `sudo ./duck <target_ip>`
   - Windows
-    - Run duck from administrator command prompt with `duck.exe <target>`
+    - Run duck from administrator command prompt with `duck.exe <target_ip>`
 
 Screenshots
 ---
@@ -35,8 +35,18 @@ Features
   - Traceroute results
   - Traceroute Path tracking with latency averaging
   - Individual traceroute host tracking with latency averaging and incident counting
-- Keeps history of ping performance older than 10 minutes as down-rezzed 30-second sample averages
+- Keeps history of ping performance older than 10 minutes as derezzed 30-second sample averages
 - Traceroute performed every 30 seconds
   - Paths stored and path traversal tracked
   - Host DNS lookup
   - Average and Max latency tracked over time
+- Stores pings, paths, and hosts to JSON files every minute
+
+Roadmap
+---
+- Derezzing of ping results after 10 minutes
+  - Exception to derezzeing is any high-latency event, with 5 minutes of high resolution context on either side
+- Variable control from WebUI
+  - Payload size
+  - Latency threshold adjustments
+- Jitter visualization
