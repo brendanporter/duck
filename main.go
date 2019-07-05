@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -9,17 +8,15 @@ import (
 	"os"
 	"regexp"
 
-	"golang.org/x/net/icmp"
-	"golang.org/x/net/ipv4"
-
 	//"strconv"
 	"encoding/json"
-	"io/ioutil"
 	"math"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/brendanporter/quack"
+	"golang.org/x/net/ipv4"
 )
 
 const CLR_0 = "\x1b[30;1m"
@@ -32,116 +29,24 @@ const CLR_C = "\x1b[36;1m"
 const CLR_W = "\x1b[37;1m"
 const CLR_N = "\x1b[0m"
 
-type PingResult struct {
-	Target  string
-	Latency float64
-	Time    int64
-}
-
-func saveDataToDisk(name string, data interface{}) error {
-
-	name = name + resultFileNameSuffix
-
-	log.Printf("Saving %s to disk", name)
-
-	dataPath, err := filepath.Abs(name + ".json")
-	if err != nil {
-		return err
-	}
-
-	rf, err := os.OpenFile(dataPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0775)
-	if err != nil {
-		return err
-	}
-	defer rf.Close()
-
-	dataJSON, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-
-	_, err = rf.Write(dataJSON)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Saved %s to disk", name)
-
-	return nil
-}
-
-func readDataFromDisk(name string, data interface{}) error {
-
-	name = name + resultFileNameSuffix
-
-	log.Printf("Reading %s from disk", name)
-
-	dataPath, err := filepath.Abs(name + ".json")
-	if err != nil {
-		return err
-	}
-
-	rf, err := os.Open(dataPath)
-	if err != nil {
-		return err
-	}
-	defer rf.Close()
-
-	dataJSON, err := ioutil.ReadAll(rf)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(dataJSON, data)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Read %s from disk", name)
-
-	return nil
-}
-
 var elog *log.Logger
 
-var pingResults map[string][]PingResult
+var pingResults map[string][]quack.PingResult
 
-var pingResultChan chan PingResult
+var pingResultChan chan quack.PingResult
 var resultRequestChan chan int
 var resultResponseChan chan []byte
 
-var ttlTraceResultChan chan []PingResult
-var unhealthyPingResultChan chan PingResult
+var ttlTraceResultChan chan []quack.PingResult
+var unhealthyPingResultChan chan quack.PingResult
 
 var pathResultsChan chan *PathStats
 var pathResultsRequestChan chan int
 var pathResultsResponseChan chan map[string]*PathStats
 
-var hostResultsChan chan *PingResult
+var hostResultsChan chan *quack.PingResult
 var hostResultsRequestChan chan int
 var hostResultsResponseChan chan map[string]*HostStats
-
-type UnhealthyPingResult struct {
-	Target      string
-	Latency     float64
-	Time        int64
-	MessageType string `json:"mt"`
-}
-
-type TraceResult struct {
-	Hops        []PingResult
-	MessageType string `json:"mt"`
-}
-
-type PathsResult struct {
-	Paths       map[string]*PathStats
-	MessageType string `json:"mt"`
-}
-
-type HostsResult struct {
-	Hosts       map[string]*HostStats
-	MessageType string `json:"mt"`
-}
 
 func saveProcessor() {
 
@@ -235,6 +140,28 @@ func resultProcessor() {
 	for {
 		select {
 		case pr := <-pingResultChan:
+
+			switch pr.ICMPMessage.Type {
+			case ipv4.ICMPTypeEchoReply:
+
+			case ipv4.ICMPTypeDestinationUnreachable:
+				fmt.Printf("Destination network unreachable")
+			case ipv4.ICMPTypeTimeExceeded:
+			}
+
+			var color string = CLR_W
+			if pr.Latency < 40.0 {
+				color = CLR_G
+			} else if pr.Latency > 65.0 && pr.Latency < 150.0 {
+				color = CLR_Y
+			} else if pr.Latency > 150.0 {
+				color = CLR_R
+			}
+
+			barCount := int((pr.Latency / 2000) * 80)
+
+			fmt.Printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%s%.3f ms |%s|%s\n", pr.Size, pr.Peer, pr.Sequence, pr.TTL, color, pr.Latency, strings.Repeat("-", barCount), CLR_W)
+
 			pingResults[pr.Target] = append(pingResults[pr.Target], pr)
 			jsonBytes, err := json.Marshal(pr)
 			if err != nil {
@@ -373,18 +300,18 @@ func resultProcessor() {
 var thirtySampleRollingLatency []float64
 
 func init() {
-	pingResults = make(map[string][]PingResult)
-	pingResultChan = make(chan PingResult, 10)
+	pingResults = make(map[string][]quack.PingResult)
+	pingResultChan = make(chan quack.PingResult, 10)
 	resultResponseChan = make(chan []byte, 10)
 	resultRequestChan = make(chan int, 10)
-	ttlTraceResultChan = make(chan []PingResult, 10)
-	unhealthyPingResultChan = make(chan PingResult, 10)
+	ttlTraceResultChan = make(chan []quack.PingResult, 10)
+	unhealthyPingResultChan = make(chan quack.PingResult, 10)
 
 	pathResultsChan = make(chan *PathStats, 10)
 	pathResultsRequestChan = make(chan int, 10)
 	pathResultsResponseChan = make(chan map[string]*PathStats, 10)
 
-	hostResultsChan = make(chan *PingResult, 10)
+	hostResultsChan = make(chan *quack.PingResult, 10)
 	hostResultsRequestChan = make(chan int, 10)
 	hostResultsResponseChan = make(chan map[string]*HostStats, 10)
 
@@ -392,7 +319,7 @@ func init() {
 
 }
 
-func echoResults(target string, packetsTx, packetsRx int64, minLatency, avgLatency, maxLatency, stdDevLatency float64) {
+func echoResults(target string, packetsTx, packetsRx int, minLatency, avgLatency, maxLatency, stdDevLatency float64) {
 
 	fmt.Print("\n")
 	log.Printf("--- %s ping statistics ---", target)
@@ -411,8 +338,8 @@ func main() {
 	var minLatency float64 = 99999.9
 	var avgLatency float64
 	var stdDevLatency float64
-	var packetsTx int64
-	var packetsRx int64
+	var packetsTx int
+	var packetsRx int
 
 	var target string
 
@@ -438,7 +365,7 @@ func main() {
 		select {
 		case <-pingTicker.C:
 			packetsTx++
-			latency, err := sendPing(target, packetsTx)
+			latency, err := quack.SendPing(target, packetsTx, 0, pingResultChan)
 			if err != nil {
 				log.Print(err)
 				fmt.Printf("Request timeout for icmp_seq %d\n", packetsTx)
@@ -477,7 +404,7 @@ func main() {
 
 		case <-traceTicker.C:
 			go func() {
-				traceResults, err := ttlTrace(target)
+				traceResults, err := quack.TTLTrace(target)
 				if err != nil {
 					elog.Print(err)
 				}
@@ -485,7 +412,7 @@ func main() {
 				ttlTraceResultChan <- traceResults
 
 				var lastLatency float64
-				var highLatencyHosts []PingResult
+				var highLatencyHosts []quack.PingResult
 				var latencyHighWaterMark float64
 
 				for i, traceResult := range traceResults {
@@ -516,7 +443,7 @@ func main() {
 				if latencyHighWaterMark > 100 {
 					log.Printf("High latency of %.1fms detected. Performing additional traces.", latencyHighWaterMark)
 					for x := 0; x < 4; x++ {
-						traceResults, err := ttlTrace(target)
+						traceResults, err := quack.TTLTrace(target)
 						if err != nil {
 							elog.Print(err)
 						}
@@ -539,26 +466,7 @@ func main() {
 
 }
 
-type HostStats struct {
-	HostName       string
-	HostDNSName    string
-	AvgLatency     float64
-	MaxLatency     float64
-	MinLatency     float64
-	TripCount      int
-	HighLatency100 int
-	HighLatency400 int
-	HighLatency700 int
-}
-
-type PathStats struct {
-	PathName      string
-	MaxLatencyAvg float64
-	AvgLatency    float64
-	TripCount     int
-}
-
-func digestTraceResults(traceResults []PingResult) {
+func digestTraceResults(traceResults []quack.PingResult) {
 
 	var pathName string
 	var targetNames []string
@@ -595,243 +503,4 @@ func digestTraceResults(traceResults []PingResult) {
 
 	pathResultsChan <- newPathStats
 
-}
-
-func ttlTrace(targetIP string) ([]PingResult, error) {
-
-	var latency float64
-
-	c, err := net.ListenPacket("ip4:1", "0.0.0.0") // ICMP for IPv4
-	if err != nil {
-		elog.Printf("listen err, %s", err)
-		return nil, err
-	}
-	defer c.Close()
-
-	traceResults := make(map[int]PingResult)
-	var ttls []int
-
-	for i := 1; i < 64; i++ {
-
-		//log.Printf("Tracing TTL %d", i)
-
-		ttls = append(ttls, i)
-
-		conn := ipv4.NewPacketConn(c)
-		if err != nil {
-			elog.Print(err)
-			return nil, err
-		}
-
-		if err := conn.SetControlMessage(ipv4.FlagTTL|ipv4.FlagSrc|ipv4.FlagDst|ipv4.FlagInterface, true); err != nil {
-			log.Fatal(err)
-		}
-
-		wm := icmp.Message{
-			Type: ipv4.ICMPTypeEcho,
-			Code: 0,
-			Body: &icmp.Echo{
-				ID:   os.Getpid() & 0xffff,
-				Seq:  i,
-				Data: []byte("HELLO-R-U-THERE-TTLTRACE-TTLTRACE-TTLTRACE-TTLTRACE-BYE!"),
-			},
-		}
-		wb, err := wm.Marshal(nil)
-		if err != nil {
-			elog.Print(err)
-			return nil, err
-		}
-
-		conn.SetDeadline(time.Now().Add(time.Second * 2))
-		if err != nil {
-			elog.Print(err)
-			return nil, err
-		}
-
-		if err := conn.SetTTL(i); err != nil {
-			elog.Print(err)
-			return nil, err
-		}
-
-		start := time.Now()
-		if _, err := conn.WriteTo(wb, nil, &net.IPAddr{IP: net.ParseIP(targetIP)}); err != nil {
-			elog.Printf("WriteTo err, %s", err)
-			return nil, err
-		}
-
-	LISTENTRACE:
-		rb := make([]byte, 128)
-		n, peer, err := c.ReadFrom(rb)
-		if err != nil {
-			elog.Print(err)
-			//return nil, err
-			continue
-		}
-		rm, err := icmp.ParseMessage(ipv4.ICMPTypeEcho.Protocol(), rb[:n])
-		if err != nil {
-			elog.Print(err)
-			return nil, err
-		}
-
-		if bytes.Contains(rb[:n], []byte("HELLO-R-U-THERE-KNOCK-KNOCK-QUACK-QUACK-QUACK-QUACK-BYE!")) && time.Since(start).Seconds() < 2 {
-			goto LISTENTRACE
-		}
-
-		latency = float64(time.Since(start).Nanoseconds()) / 1000000
-
-		switch rm.Type {
-		case ipv4.ICMPTypeEchoReply:
-
-			pr := PingResult{
-				Target:  peer.String(),
-				Latency: latency,
-				Time:    time.Now().Unix(),
-			}
-
-			traceResults[i] = pr
-
-		case ipv4.ICMPTypeDestinationUnreachable:
-			fmt.Printf("Destination network unreachable")
-
-		case ipv4.ICMPTypeTimeExceeded:
-			pr := PingResult{
-				Target:  peer.String(),
-				Latency: latency,
-				Time:    time.Now().Unix(),
-			}
-
-			traceResults[i] = pr
-
-		default:
-			log.Printf("got %+v; want echo reply", rm)
-		}
-
-		if targetIP == peer.String() {
-			break
-		}
-	}
-
-	var traceResultSlice []PingResult
-
-	for _, ttl := range ttls {
-		traceResultSlice = append(traceResultSlice, traceResults[ttl])
-	}
-
-	digestTraceResults(traceResultSlice)
-
-	return traceResultSlice, nil
-}
-
-func sendPing(targetIP string, seq int64) (float64, error) {
-
-	var latency float64
-
-	c, err := net.ListenPacket("ip4:1", "0.0.0.0") // ICMP for IPv4
-	if err != nil {
-		log.Printf("listen err, %s", err)
-		return latency, err
-	}
-	defer c.Close()
-
-	conn := ipv4.NewPacketConn(c)
-	if err != nil {
-		return latency, err
-	}
-
-	if err := conn.SetControlMessage(ipv4.FlagTTL|ipv4.FlagSrc|ipv4.FlagDst|ipv4.FlagInterface, true); err != nil {
-		log.Fatal(err)
-	}
-
-	wm := icmp.Message{
-		Type: ipv4.ICMPTypeEcho,
-		Code: 0,
-		Body: &icmp.Echo{
-			ID:   os.Getpid() & 0xffff,
-			Seq:  int(seq),
-			Data: []byte("HELLO-R-U-THERE-KNOCK-KNOCK-QUACK-QUACK-QUACK-QUACK-BYE!"),
-		},
-	}
-	wb, err := wm.Marshal(nil)
-	if err != nil {
-		return latency, err
-	}
-
-	conn.SetDeadline(time.Now().Add(time.Second * 2))
-	if err != nil {
-		return latency, err
-	}
-
-	if err := conn.SetTTL(122); err != nil {
-		return latency, err
-	}
-
-	start := time.Now()
-	if _, err := conn.WriteTo(wb, nil, &net.IPAddr{IP: net.ParseIP(targetIP)}); err != nil {
-		log.Printf("WriteTo err, %s", err)
-		return latency, err
-	}
-
-LISTEN:
-
-	rb := make([]byte, 128)
-	n, peer, err := c.ReadFrom(rb)
-	if err != nil {
-		return latency, err
-	}
-	rm, err := icmp.ParseMessage(ipv4.ICMPTypeEcho.Protocol(), rb[:n])
-	if err != nil {
-		return latency, err
-	}
-
-	if !bytes.Contains(rb[:n], []byte("HELLO-R-U-THERE-KNOCK-KNOCK-QUACK-QUACK-QUACK-QUACK-BYE!")) && time.Since(start).Seconds() < 2 {
-		goto LISTEN
-	}
-
-	switch rm.Type {
-	case ipv4.ICMPTypeEchoReply:
-
-		latency = float64(time.Since(start).Nanoseconds()) / 1000000
-
-		ttl, err := conn.TTL()
-		if err != nil {
-			return latency, err
-		}
-
-		pr := PingResult{
-			Target:  targetIP,
-			Latency: latency,
-			Time:    time.Now().Unix(),
-		}
-
-		pingResultChan <- pr
-
-		var color string = CLR_W
-		if latency < 40.0 {
-			color = CLR_G
-		} else if latency > 65.0 && latency < 150.0 {
-			color = CLR_Y
-		} else if latency > 150.0 {
-			color = CLR_R
-		}
-
-		barCount := int((latency / 2000) * 80)
-
-		fmt.Printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%s%.3f ms |%s|%s\n", len(wb), peer, seq, ttl, color, latency, strings.Repeat("-", barCount), CLR_W)
-	case ipv4.ICMPTypeDestinationUnreachable:
-		fmt.Printf("Destination network unreachable")
-
-	case ipv4.ICMPTypeTimeExceeded:
-		pr := PingResult{
-			Target:  targetIP,
-			Latency: 2000,
-			Time:    time.Now().Unix(),
-		}
-
-		pingResultChan <- pr
-
-	default:
-		log.Printf("got %+v; want echo reply", rm)
-	}
-
-	return latency, nil
 }
