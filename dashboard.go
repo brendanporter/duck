@@ -41,7 +41,7 @@ function init(){
 
 	pingChart = Highcharts.chart('pingChart', {
 	time: {
-		timezoneOffset: 6 * 60,
+		timezoneOffset: now.getTimezoneOffset(),
 	},
     chart: {
     	height: 300,
@@ -107,7 +107,7 @@ function init(){
 
 pingHistoryChart = Highcharts.chart('pingHistoryChart', {
 	time: {
-		timezoneOffset: 6 * 60,
+		timezoneOffset: now.getTimezoneOffset(),
 	},
     chart: {
         height: 200,
